@@ -4,21 +4,31 @@ declare(strict_types=1);
 
 namespace GildedRose;
 
+use GildedRose\ItemUpdater\ItemUpdaterProvider;
+
 final class GildedRose
 {
-    const AGED_BRIE = 'Aged Brie';
+    const MAXIMUM_QUALITY = 50;
     /**
      * @var Item[]
      */
     private $items;
+    /**
+     * @var ItemUpdaterProvider
+     */
+    private $itemUpdaterProvider;
 
+    /**
+     * @param Item[] $items
+     */
     public function __construct(array $items) {
         $this->items = $items;
+        $this->itemUpdaterProvider = new ItemUpdaterProvider();
     }
 
     public function updateQuality(): void {
         foreach ($this->items as $item) {
-            $this->alterItem($item);
+            $item = $this->alterItem($item);
 
 //            if ($item->name != 'Aged Brie' and $item->name != 'Backstage passes to a TAFKAL80ETC concert') {
 //                if ($item->quality > 0) {
@@ -68,25 +78,26 @@ final class GildedRose
         }
     }
 
-    protected function alterItem($item) {
-        $this->alterItemSellIn($item);
-        $this->alterItemQuality($item);
+    protected function alterItem(Item $item) {
+       $updater = $this->itemUpdaterProvider->getCorrespondingUpdater($item);
+       $item = $updater->update($item);
+       return $this->manageItemLimitations($item);
 
     }
 
-    protected function alterItemSellIn($item) {
-        $item->sell_in--;
+    private function manageItemLimitations(Item $item): Item {
+        $item = $this->preventItemQualityFromGoingBelowZero($item);
+        $item = $this->preventItemQualityFromGoingAboveMaximum($item);
+        return $item;
     }
 
-    protected function alterItemQuality($item) {
-        if ($item->name === self::AGED_BRIE) {
-            $item->quality++;
-        } else {
-            $item->quality--;
-        }
+    private function preventItemQualityFromGoingBelowZero(Item $item): Item {
+        $item->quality = max($item->quality, 0);
+        return $item;
+    }
 
-        if ($item->sell_in < 0) {
-            $item->quality--;
-        }
+    private function preventItemQualityFromGoingAboveMaximum(Item $item) {
+        $item->quality = min($item->quality, self::MAXIMUM_QUALITY);
+        return $item;
     }
 }
